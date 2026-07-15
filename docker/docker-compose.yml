@@ -7,7 +7,7 @@ networks:
 services:
   zeebe-play-in-memory:
     container_name: zeebe-play-in-memory
-    image: ghcr.io/camunda-community-hub/zeebe-play:1.4.0
+    image: ${ZEEBE_PLAY_IMAGE:-zeebe-play:2.0.0-SNAPSHOT}
     ports:
       - "8080:8080"
       - "26500:26500"
@@ -18,7 +18,7 @@ services:
 
   zeebe-play-remote-engine:
     container_name: zeebe-play-remote-engine
-    image: ghcr.io/camunda-community-hub/zeebe-play:1.4.0
+    image: ${ZEEBE_PLAY_IMAGE:-zeebe-play:2.0.0-SNAPSHOT}
     environment:
       - ZEEBE_ENGINE=remote
       - ZEEBE_CLIENT_BROKER_GATEWAYADDRESS=zeebe:26500
@@ -35,7 +35,7 @@ services:
 
   zeebe-play-postgres:
     container_name: zeebe-play-postgres
-    image: ghcr.io/camunda-community-hub/zeebe-play:1.4.0
+    image: ${ZEEBE_PLAY_IMAGE:-zeebe-play:2.0.0-SNAPSHOT}
     environment:
       - ZEEBE_ENGINE=remote
       - ZEEBE_CLIENT_BROKER_GATEWAYADDRESS=zeebe:26500
@@ -46,7 +46,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=zeebe
       - SPRING_DATASOURCE_DRIVERCLASSNAME=org.postgresql.Driver
       - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
-      - SPRING_JPA_HIBERNATE_DLL_AUTO=create
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
     ports:
       - "8080:8080"
     networks:
@@ -59,7 +59,7 @@ services:
 
   zeebe-play-mysql:
     container_name: zeebe-play-mysql
-    image: ghcr.io/camunda-community-hub/zeebe-play:1.4.0
+    image: ${ZEEBE_PLAY_IMAGE:-zeebe-play:2.0.0-SNAPSHOT}
     environment:
       - ZEEBE_ENGINE=remote
       - ZEEBE_CLIENT_BROKER_GATEWAYADDRESS=zeebe:26500
@@ -71,7 +71,7 @@ services:
       - SPRING_DATASOURCE_DRIVERCLASSNAME=com.mysql.cj.jdbc.Driver
       - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.MySQL8Dialect
       - SPRING_JPA_HIBERNATE_NAMING_PHYSICAL_STRATEGY=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
-      - SPRING_JPA_HIBERNATE_DLL_AUTO=create
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=create
     ports:
       - "8080:8080"
     networks:
@@ -84,13 +84,18 @@ services:
 
   zeebe:
     container_name: zeebe_broker
-    image: ghcr.io/camunda-community-hub/zeebe-with-hazelcast-exporter:8.0.5
+    image: ${ZEEBE_BROKER_IMAGE:-camunda/zeebe:8.9.0}
     environment:
       - ZEEBE_LOG_LEVEL=debug
       - ZEEBE_CLOCK_CONTROLLED=true
+      - ZEEBE_BROKER_EXPORTERS_HAZELCAST_CLASSNAME=io.zeebe.hazelcast.exporter.HazelcastExporter
+      - ZEEBE_BROKER_EXPORTERS_HAZELCAST_JARPATH=/usr/local/zeebe/exporters/zeebe-hazelcast-exporter.jar
+    volumes:
+      - ${ZEEBE_HAZELCAST_EXPORTER_JAR:-../target/docker/zeebe-hazelcast-exporter.jar}:/usr/local/zeebe/exporters/zeebe-hazelcast-exporter.jar:ro
     ports:
       - "26500:26500"
       - "5701:5701"
+      - "9600:9600"
     networks:
       - zeebe_network
     profiles:
@@ -99,7 +104,7 @@ services:
       - mysql
 
   postgres-zeebe-play:
-    image: postgres:12.2
+    image: ${POSTGRES_IMAGE:-postgres:12.2}
     restart: always
     environment:
       POSTGRES_PASSWORD: zeebe
@@ -111,7 +116,7 @@ services:
       - postgres
 
   mysql-zeebe-play:
-    image: mysql:8
+    image: ${MYSQL_IMAGE:-mysql:8}
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: zeebe

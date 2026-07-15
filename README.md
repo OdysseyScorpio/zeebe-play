@@ -47,40 +47,73 @@ This project is a **community-driven** extension and not officially supported by
 
 ### Docker
 
-The docker image is published
-to [GitHub Packages](https://github.com/orgs/camunda-community-hub/packages/container/package/zeebe-play)
-.
+On Windows, start Docker Desktop with Linux containers enabled. Then build a local image from this
+fork after installing the local EZE snapshot:
 
-Pull the image using the following command:
+```powershell
+Set-Location ..\eze
+mvn -q -DskipTests install
 
+Set-Location ..\zeebe-play
+mvn -q -DskipTests package
+docker build -t zeebe-play:2.0.0-SNAPSHOT .
 ```
-docker pull ghcr.io/camunda-community-hub/zeebe-play:latest
+
+Or build/push with Jib and choose the registry at build time:
+
+```powershell
+mvn -q -DskipTests "-Djib.to.image=ghcr.io/your-github-user-or-org/zeebe-play" "-Djib.to.tags=2.0.0-SNAPSHOT" jib:build
 ```
 
-Next, have a look at [usage](#-usage) on how to start the docker container, and the different
-configurations.
+The image name is intentionally configurable, so a fork can publish to a different registry without
+editing the POM.
+
+When changes are pushed to `main`, the GitHub Actions workflow publishes this fork's image to GHCR:
+
+```powershell
+docker pull ghcr.io/odysseyscorpio/zeebe-play:latest
+docker pull ghcr.io/odysseyscorpio/zeebe-play:2.0.0-SNAPSHOT
+```
+
+The package must be public for anonymous pulls. If it is private, run `docker login ghcr.io` with a
+GitHub token that has `read:packages` access before pulling.
 
 ### Docker Compose
 
 For a local setup, the repository contains a [docker-compose file](docker/docker-compose.yml). It
-contains multiple profiles for different configurations.
+contains multiple profiles for different configurations. By default, it uses the local
+`zeebe-play:2.0.0-SNAPSHOT` image. To build that image locally as part of `docker compose`, include
+`docker/docker-compose.local-build.yml` and pass `--build`. To pull from a fork or registry instead,
+set `ZEEBE_PLAY_IMAGE`, for example
+`ghcr.io/your-github-user-or-org/zeebe-play:2.0.0-SNAPSHOT`.
 
 Embedded Zeebe engine and in-memory database:
 
+```powershell
+docker compose --env-file docker/.env.example -f docker/docker-compose.yml --profile in-memory up
 ```
-docker-compose --profile in-memory up
+
+Or build the local image as part of compose:
+
+```powershell
+docker compose `
+  --env-file docker/.env.example `
+  -f docker/docker-compose.yml `
+  -f docker/docker-compose.local-build.yml `
+  --profile in-memory `
+  up --build
 ```
 
 Remote Zeebe engine and in-memory database:
 
-```
-docker-compose --profile remote-engine up
+```powershell
+docker compose --env-file docker/.env.example -f docker/docker-compose.yml --profile remote-engine up
 ```
 
 Embedded Zeebe engine and PostgreSQL database:
 
-```
-docker-compose --profile postgres up
+```powershell
+docker compose --env-file docker/.env.example -f docker/docker-compose.yml --profile postgres up
 ```
 
 After Zeebe-Play is started, go to http://localhost:8080 and play.
@@ -105,7 +138,7 @@ state (i.e. no data on restart).
 Use the following command to start the docker container:
 
 ```
-docker run -p 8080:8080 -p 26500:26500 ghcr.io/camunda-community-hub/zeebe-play:latest
+docker run -p 8080:8080 -p 26500:26500 zeebe-play:2.0.0-SNAPSHOT
 ```
 
 - expose port `8080` for the web application
@@ -114,7 +147,7 @@ docker run -p 8080:8080 -p 26500:26500 ghcr.io/camunda-community-hub/zeebe-play:
 Or, if you run it on your local machine (Linux only):
 
 ```
-docker run --network="host" ghcr.io/camunda-community-hub/zeebe-play:latest
+docker run --network="host" zeebe-play:2.0.0-SNAPSHOT
 ```
 
 ### Connecting to a remote Zeebe engine
@@ -132,16 +165,22 @@ Zeebe-Play can connect to a remote Zeebe engine to run the processes.
     - `26500` for connecting the Zeebe client
     - `5701` for connection to Hazelcast
 
-For example, using the pre-built community Zeebe image with Hazelcast exporter:
+For example, with the compose file, the broker image and Hazelcast exporter jar are configurable via
+`ZEEBE_BROKER_IMAGE` and `ZEEBE_HAZELCAST_EXPORTER_JAR`. The default broker image is
+`camunda/zeebe:8.9.0`, and `mvn package` copies the exporter jar to
+`target/docker/zeebe-hazelcast-exporter.jar`.
 
 ```
-docker run -p 26500:26500 -p 5701:5701 -e ZEEBE_CLOCK_CONTROLLED=true ghcr.io/camunda-community-hub/zeebe-with-hazelcast-exporter:8.0.5
+docker compose --env-file docker/.env.example -f docker/docker-compose.yml --profile remote-engine up
 ```
 
-Or, if you run it on your local machine (Linux only):
+If you use a custom broker image with the Hazelcast exporter already baked in, set
+`ZEEBE_BROKER_IMAGE` and remove or override `ZEEBE_HAZELCAST_EXPORTER_JAR` as needed.
+
+Or, if you run Zeebe-Play on your local machine (Linux only):
 
 ```
-docker run --network="host" -e ZEEBE_CLOCK_CONTROLLED=true ghcr.io/camunda-community-hub/zeebe-with-hazelcast-exporter:8.0.5
+docker run --network="host" -e ZEEBE_ENGINE=remote zeebe-play:2.0.0-SNAPSHOT
 ```
 
 #### In Zeebe-Play
@@ -160,13 +199,13 @@ docker run --network="host" -e ZEEBE_CLOCK_CONTROLLED=true ghcr.io/camunda-commu
     - `zeebe.client.worker.hazelcast.connection` (application.yaml)
 
 ```
-docker run -p 8080:8080 -e ZEEBE_ENGINE=remote ghcr.io/camunda-community-hub/zeebe-play:latest
+docker run -p 8080:8080 -e ZEEBE_ENGINE=remote zeebe-play:2.0.0-SNAPSHOT
 ```
 
 Or, if you run it on your local machine (Linux only):
 
 ```
-docker run --network="host" -e ZEEBE_ENGINE=remote ghcr.io/camunda-community-hub/zeebe-play:latest
+docker run --network="host" -e ZEEBE_ENGINE=remote zeebe-play:2.0.0-SNAPSHOT
 ```
 
 ### Enable persistence
