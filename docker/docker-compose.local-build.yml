@@ -1,0 +1,28 @@
+services:
+  zeebe-play-in-memory:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        JAR_FILE: ${ZEEBE_PLAY_JAR:-target/zeebe-play-2.0.0-SNAPSHOT.jar}
+
+  zeebe-play-remote-engine:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        JAR_FILE: ${ZEEBE_PLAY_JAR:-target/zeebe-play-2.0.0-SNAPSHOT.jar}
+
+  zeebe-play-postgres:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        JAR_FILE: ${ZEEBE_PLAY_JAR:-target/zeebe-play-2.0.0-SNAPSHOT.jar}
+
+  zeebe-play-mysql:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        JAR_FILE: ${ZEEBE_PLAY_JAR:-target/zeebe-play-2.0.0-SNAPSHOT.jar}

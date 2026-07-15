@@ -8,6 +8,7 @@ import io.camunda.connector.runtime.core.outbound.ConnectorJobHandler
 import io.camunda.connector.validation.impl.DefaultValidationProvider
 import io.camunda.zeebe.client.ZeebeClient
 import io.camunda.zeebe.client.api.response.ActivatedJob
+import io.camunda.zeebe.client.api.response.UserTaskProperties
 import io.camunda.zeebe.model.bpmn.Bpmn
 import io.camunda.zeebe.model.bpmn.instance.FlowElement
 import io.camunda.zeebe.model.bpmn.instance.zeebe.ZeebeTaskHeaders
@@ -222,6 +223,18 @@ class ConnectorsResource(
 
         override fun <T : Any?> getVariablesAsType(variableType: Class<T>?): T {
             return objectMapper.readValue(variables, variableType)
+        }
+
+        override fun getVariable(name: String): Any? {
+            return getVariablesAsMap()[name]
+        }
+
+        override fun getUserTask(): UserTaskProperties? {
+            return null
+        }
+
+        override fun getTenantId(): String {
+            return "<default>"
         }
 
         override fun toJson(): String {
