@@ -62,28 +62,31 @@ docker build -t zeebe-play:2.0.0-SNAPSHOT .
 Or build/push with Jib and choose the registry at build time:
 
 ```powershell
-mvn -q -DskipTests "-Djib.to.image=ghcr.io/your-github-user-or-org/zeebe-play" "-Djib.to.tags=2.0.0-SNAPSHOT" jib:build
+mvn -q -DskipTests "-Djib.to.image=ghcr.io/camundaguru/zeebe-play" "-Djib.to.tags=2.0.0-SNAPSHOT" jib:build
 ```
 
 The image name is intentionally configurable, so a fork can publish to a different registry without
 editing the POM.
 
-When changes are pushed to `main`, the GitHub Actions workflow publishes this fork's image to GHCR:
+When changes are pushed to `main`, the GitHub Actions workflow publishes the image to GHCR:
 
 ```powershell
-docker pull ghcr.io/odysseyscorpio/zeebe-play:latest
-docker pull ghcr.io/odysseyscorpio/zeebe-play:2.0.0-SNAPSHOT
+docker pull ghcr.io/camundaguru/zeebe-play:latest
+docker pull ghcr.io/camundaguru/zeebe-play:2.0.0-SNAPSHOT
 ```
 
 The published image is multi-architecture for `linux/amd64` and `linux/arm64`, and exposes ports
 `8080` and `26500` in the image metadata. Publish those ports when running the container:
 
 ```powershell
-docker run -p 8080:8080 -p 26500:26500 ghcr.io/odysseyscorpio/zeebe-play:latest
+docker run -p 8080:8080 -p 26500:26500 ghcr.io/camundaguru/zeebe-play:latest
 ```
 
-The package must be public for anonymous pulls. If it is private, run `docker login ghcr.io` with a
-GitHub token that has `read:packages` access before pulling.
+Because the image is published under the `camundaguru` package namespace, add a repository variable
+`GHCR_USERNAME` and repository secret `GHCR_PAT` for a GitHub user that can publish packages there.
+The token needs `write:packages` and `read:packages`; add `repo` too if the repository/package is
+private. The package must be public for anonymous pulls. If it is private, run `docker login ghcr.io`
+with a GitHub token that has `read:packages` access before pulling.
 
 ### Docker Compose
 
@@ -91,8 +94,7 @@ For a local setup, the repository contains a [docker-compose file](docker/docker
 contains multiple profiles for different configurations. By default, it uses the local
 `zeebe-play:2.0.0-SNAPSHOT` image. To build that image locally as part of `docker compose`, include
 `docker/docker-compose.local-build.yml` and pass `--build`. To pull from a fork or registry instead,
-set `ZEEBE_PLAY_IMAGE`, for example
-`ghcr.io/your-github-user-or-org/zeebe-play:2.0.0-SNAPSHOT`.
+set `ZEEBE_PLAY_IMAGE`, for example `ghcr.io/camundaguru/zeebe-play:2.0.0-SNAPSHOT`.
 
 Embedded Zeebe engine and in-memory database:
 

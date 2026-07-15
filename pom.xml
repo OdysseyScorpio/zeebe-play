@@ -39,7 +39,7 @@
         <httpcore5.version>5.4.2</httpcore5.version>
         <netty.version>4.2.16.Final</netty.version>
         <jib.from.image>eclipse-temurin:21-jre</jib.from.image>
-        <jib.to.image>ghcr.io/camunda-community-hub/zeebe-play</jib.to.image>
+        <jib.to.image>ghcr.io/camundaguru/zeebe-play</jib.to.image>
         <jib.to.tags>${project.version}</jib.to.tags>
 
         <!-- release parent settings -->
