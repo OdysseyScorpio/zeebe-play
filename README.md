@@ -75,6 +75,13 @@ docker pull ghcr.io/odysseyscorpio/zeebe-play:latest
 docker pull ghcr.io/odysseyscorpio/zeebe-play:2.0.0-SNAPSHOT
 ```
 
+The published image is multi-architecture for `linux/amd64` and `linux/arm64`, and exposes ports
+`8080` and `26500` in the image metadata. Publish those ports when running the container:
+
+```powershell
+docker run -p 8080:8080 -p 26500:26500 ghcr.io/odysseyscorpio/zeebe-play:latest
+```
+
 The package must be public for anonymous pulls. If it is private, run `docker login ghcr.io` with a
 GitHub token that has `read:packages` access before pulling.
 
