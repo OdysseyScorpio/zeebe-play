@@ -3,6 +3,7 @@ name: Publish Docker image
 on:
   push:
     branches: [ main ]
+    tags: [ "v*" ]
   workflow_dispatch:
     inputs:
       eze_repository:
@@ -42,9 +43,15 @@ jobs:
           INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           image_name="${REGISTRY}/${GITHUB_REPOSITORY,,}"
-          image_tag="${INPUT_IMAGE_TAG:-$DEFAULT_IMAGE_TAG}"
           eze_repository="${INPUT_EZE_REPOSITORY:-$DEFAULT_EZE_REPOSITORY}"
-          eze_ref="${INPUT_EZE_REF:-$DEFAULT_EZE_REF}"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            image_tag="${GITHUB_REF_NAME#v}"
+            eze_ref="${INPUT_EZE_REF:-$GITHUB_REF_NAME}"
+          else
+            image_tag="${INPUT_IMAGE_TAG:-$DEFAULT_IMAGE_TAG}"
+            eze_ref="${INPUT_EZE_REF:-$DEFAULT_EZE_REF}"
+          fi
 
           {
             echo "image_name=${image_name}"
@@ -78,7 +85,7 @@ jobs:
 
       - name: Install EZE snapshot
         working-directory: eze
-        run: mvn -B -q -DskipTests install
+        run: mvn -B -q -DskipTests -Dfmt.skip=true install
 
       - name: Package zeebe-play
         working-directory: zeebe-play
