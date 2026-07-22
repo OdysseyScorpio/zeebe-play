@@ -1,7 +1,5 @@
 package org.camunda.community.zeebe.play
 
-
-import io.camunda.connector.runtime.OutboundConnectorsAutoConfiguration
 import org.camunda.community.zeebe.play.services.HazelcastService
 import org.camunda.community.zeebe.play.zeebe.ZeebeService
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -10,8 +8,7 @@ import org.springframework.data.web.config.EnableSpringDataWebSupport
 import javax.annotation.PostConstruct
 import javax.annotation.PreDestroy
 
-
-@SpringBootApplication(exclude = [OutboundConnectorsAutoConfiguration::class])
+@SpringBootApplication
 @EnableSpringDataWebSupport
 open class ZeebePlayApplication(
     private val hazelcastService: HazelcastService,

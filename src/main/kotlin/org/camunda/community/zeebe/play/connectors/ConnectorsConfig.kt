@@ -1,11 +1,6 @@
 package org.camunda.community.zeebe.play.connectors
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import io.camunda.connector.api.secret.SecretProvider
-import io.camunda.connector.runtime.core.ConnectorHelper
-import io.camunda.connector.runtime.core.outbound.ConnectorJobHandler
-import io.camunda.connector.validation.impl.DefaultValidationProvider
-import io.camunda.zeebe.client.ZeebeClient
+import io.camunda.client.CamundaClient
 import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.domain.EntityScan
 import org.springframework.boot.context.properties.EnableConfigurationProperties
@@ -18,8 +13,7 @@ import javax.annotation.PostConstruct
 @EntityScan
 @EnableConfigurationProperties(ConnectorProperties::class)
 class ConnectorsConfig(
-    private val zeebeClient: ZeebeClient,
-    private val secretProvider: SecretProvider,
+    private val zeebeClient: CamundaClient,
     private val connectorProperties: ConnectorProperties,
     private val connectorSecretRepository: ConnectorSecretRepository,
     private val connectorService: ConnectorService
@@ -34,21 +28,21 @@ class ConnectorsConfig(
             connectorService
                 .findAvailableConnectors()
                 .forEach { connectorConfig ->
-                    val connector =
-                        ConnectorHelper.instantiateConnector(connectorConfig.connectorClass)
-                    val validationProvider = DefaultValidationProvider()
-                    val objectMapper = ObjectMapper()
-                    val jobHandler = ConnectorJobHandler(connector, secretProvider, validationProvider, objectMapper)
-
                     zeebeClient
                         .newWorker()
-                        .jobType(connectorConfig.type)
-                        .handler(jobHandler)
-                        .name(connectorConfig.name)
-                        .fetchVariables(connectorConfig.inputVariables.toList())
+                        .jobType(connectorConfig.type())
+                        .handler { _, job ->
+                            val result = connectorService.executeConnectorJob(
+                                connectorConfig,
+                                job
+                            )
+                            ConnectorJobCommands.send(zeebeClient, job.key, result)
+                        }
+                        .name(connectorConfig.name())
+                        .fetchVariables(connectorConfig.inputVariables().toList())
                         .open()
 
-                    logger.info("Start Zeebe connector. [name: '${connectorConfig.name}', type: '${connectorConfig.type}']")
+                    logger.info("Start Zeebe connector. [name: '${connectorConfig.name()}', type: '${connectorConfig.type()}']")
                 }
         }
     }

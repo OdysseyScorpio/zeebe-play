@@ -1,6 +1,6 @@
 package org.camunda.community.zeebe.play.zeebe
 
-import io.camunda.zeebe.client.ZeebeClient
+import io.camunda.client.CamundaClient
 import io.zeebe.hazelcast.exporter.HazelcastExporter
 import org.camunda.community.eze.EngineFactory
 import org.camunda.community.eze.ZeebeEngine
@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import java.net.URI
 import java.time.Duration
 import java.time.Instant
 
@@ -28,8 +29,18 @@ open class EmbeddedZeebeConfig {
     }
 
     @Bean
-    open fun zeebeClient(engine: ZeebeEngine): ZeebeClient {
-        return engine.createClient()
+    open fun zeebeClient(engine: ZeebeEngine): CamundaClient {
+        val gatewayAddress = engine.getGatewayAddress()
+        val grpcAddress = if (gatewayAddress.contains("://")) {
+            gatewayAddress
+        } else {
+            "http://$gatewayAddress"
+        }
+
+        return CamundaClient.newClientBuilder()
+            .grpcAddress(URI.create(grpcAddress))
+            .preferRestOverGrpc(false)
+            .build()
     }
 
     class EmbeddedZeebeService(val engine: ZeebeEngine) : ZeebeService {

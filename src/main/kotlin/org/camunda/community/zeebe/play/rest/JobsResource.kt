@@ -1,11 +1,11 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.ZeebeClient
+import io.camunda.client.CamundaClient
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/rest/jobs")
-class JobsResource(private val zeebeClient: ZeebeClient) {
+class JobsResource(private val zeebeClient: CamundaClient) {
 
     @RequestMapping(path = ["/{jobKey}/complete"], method = [RequestMethod.POST])
     fun complete(@PathVariable("jobKey") jobKey: Long, @RequestBody command: CompleteJobCommand) {

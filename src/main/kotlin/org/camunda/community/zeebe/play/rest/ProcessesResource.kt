@@ -1,6 +1,6 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.ZeebeClient
+import io.camunda.client.CamundaClient
 import io.camunda.zeebe.model.bpmn.Bpmn
 import io.camunda.zeebe.model.bpmn.instance.*
 import io.zeebe.zeeqs.data.entity.ProcessInstanceState
@@ -22,7 +22,7 @@ private val RETRY_INTERVAL = Duration.ofMillis(100)
 @RestController
 @RequestMapping("/rest/processes")
 class ProcessesResource(
-    private val zeebeClient: ZeebeClient,
+    private val zeebeClient: CamundaClient,
     private val connectorService: ConnectorService,
     private val processRepository: ProcessRepository,
     private val messageSubscriptionRepository: MessageSubscriptionRepository,

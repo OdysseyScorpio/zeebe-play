@@ -1,6 +1,6 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.ZeebeClient
+import io.camunda.client.CamundaClient
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/rest/signals")
-class SignalResource(private val zeebeClient: ZeebeClient) {
+class SignalResource(private val zeebeClient: CamundaClient) {
 
     @RequestMapping(method = [RequestMethod.POST])
     fun broadcastSignal(@RequestBody command: BroadcastSignalCommand): Long {

@@ -25,10 +25,17 @@
         <eze.version>2.0.0-SNAPSHOT</eze.version>
         <hazelcast.version>1.4.0</hazelcast.version>
         <zeebe-exporter-protobuf.version>8.9.0</zeebe-exporter-protobuf.version>
-        <camunda-connector-bundle.version>0.21.3</camunda-connector-bundle.version>
+        <camunda-connector.version>8.9.0</camunda-connector.version>
+        <jakarta-validation.version>3.1.1</jakarta-validation.version>
+        <hibernate-validator.version>9.1.0.Final</hibernate-validator.version>
+        <jboss-logging.version>3.6.1.Final</jboss-logging.version>
+        <classmate.version>1.7.1</classmate.version>
+        <jakarta-el.version>6.0.1</jakarta-el.version>
+        <expressly.version>6.0.0</expressly.version>
 
         <kotlin.version>2.0.21</kotlin.version>
         <spring.boot.version>2.7.17</spring.boot.version>
+        <plugin.version.jacoco>0.8.15</plugin.version.jacoco>
         <micrometer.version>1.17.0</micrometer.version>
         <slf4j.version>2.0.17</slf4j.version>
         <log4j.version>2.24.1</log4j.version>
@@ -43,7 +50,7 @@
         <jib.to.tags>${project.version}</jib.to.tags>
 
         <!-- release parent settings -->
-        <version.java>17</version.java>
+        <version.java>21</version.java>
         <!-- disable jdk8 javadoc checks on release build -->
         <additionalparam>-Xdoclint:none</additionalparam>
 
@@ -88,14 +95,86 @@
 
             <dependency>
                 <groupId>io.camunda.connector</groupId>
-                <artifactId>spring-boot-starter-camunda-connectors</artifactId>
-                <version>${camunda-connector-bundle.version}</version>
+                <artifactId>connector-core</artifactId>
+                <version>${camunda-connector.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>io.camunda.connector</groupId>
-                <artifactId>connector-runtime-bundle</artifactId>
-                <version>${camunda-connector-bundle.version}</version>
+                <artifactId>connector-runtime-core</artifactId>
+                <version>${camunda-connector.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.camunda.connector</groupId>
+                <artifactId>connector-validation</artifactId>
+                <version>${camunda-connector.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.validation</groupId>
+                <artifactId>jakarta.validation-api</artifactId>
+                <version>${jakarta-validation.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.hibernate.validator</groupId>
+                <artifactId>hibernate-validator</artifactId>
+                <version>${hibernate-validator.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jboss.logging</groupId>
+                <artifactId>jboss-logging</artifactId>
+                <version>${jboss-logging.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml</groupId>
+                <artifactId>classmate</artifactId>
+                <version>${classmate.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.el</groupId>
+                <artifactId>jakarta.el-api</artifactId>
+                <version>${jakarta-el.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.glassfish.expressly</groupId>
+                <artifactId>expressly</artifactId>
+                <version>${expressly.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.camunda.connector</groupId>
+                <artifactId>connector-feel</artifactId>
+                <version>${camunda-connector.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.camunda.connector</groupId>
+                <artifactId>jackson-datatype-feel</artifactId>
+                <version>${camunda-connector.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.camunda.connector</groupId>
+                <artifactId>jackson-datatype-document</artifactId>
+                <version>${camunda-connector.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.camunda.connector</groupId>
+                <artifactId>connector-object-mapper</artifactId>
+                <version>${camunda-connector.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.camunda</groupId>
+                <artifactId>camunda-client-java</artifactId>
+                <version>${camunda-connector.version}</version>
             </dependency>
 
             <dependency>
@@ -251,8 +330,8 @@
             </dependency>
 
             <dependency>
-                <groupId>mysql</groupId>
-                <artifactId>mysql-connector-java</artifactId>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
                 <version>8.0.32</version>
             </dependency>
 
@@ -360,28 +439,307 @@
             <artifactId>jackson-module-kotlin</artifactId>
         </dependency>
 
-        <!-- Zeebe dependencies -->
+        <!-- Zeebe and Connector dependencies -->
 
         <dependency>
             <groupId>io.camunda.connector</groupId>
-            <artifactId>spring-boot-starter-camunda-connectors</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-logging</artifactId>
-                </exclusion>
-            </exclusions>
+            <artifactId>connector-core</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.camunda.connector</groupId>
-            <artifactId>connector-runtime-bundle</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springframework.boot</groupId>
-                    <artifactId>spring-boot-starter-logging</artifactId>
-                </exclusion>
-            </exclusions>
+            <artifactId>connector-runtime-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-validation</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.hibernate.validator</groupId>
+            <artifactId>hibernate-validator</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.el</groupId>
+            <artifactId>jakarta.el-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.glassfish.expressly</groupId>
+            <artifactId>expressly</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-feel</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>jackson-datatype-feel</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>jackson-datatype-document</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-object-mapper</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda</groupId>
+            <artifactId>camunda-client-java</artifactId>
+        </dependency>
+
+        <!-- Out-of-the-box connector modules from the Camunda 8.9 self-managed bundle.
+             connector-agentic-ai is intentionally omitted because it pulls the Spring Boot 4
+             connector runtime into this Spring Boot 2.7 application. -->
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-sqs</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-dynamodb</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-eventbridge</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-lambda</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-bedrock</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-s3</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-textract</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-box</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-csv</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-google-drive</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-google-gcs</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-rabbitmq</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-sendgrid</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-sns</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-http-json</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-slack</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-jdbc</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-kafka</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-message</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-microsoft-teams</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-microsoft-email</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-graphql</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-google-sheets</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-webhook</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-http-polling</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-automationanywhere</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-soap</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-sagemaker</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-email</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-idp-extraction</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-aws-comprehend</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-google-gemini</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-azure-blobstorage</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.camunda.connector</groupId>
+            <artifactId>connector-embeddings-vector-database</artifactId>
+            <version>${camunda-connector.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -413,8 +771,8 @@
         </dependency>
 
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
         </dependency>
 
         <!-- test dependencies -->
@@ -641,6 +999,27 @@
                 <version>3.5.1</version>
             </plugin>
 
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${plugin.version.jacoco}</version>
+                <executions>
+                    <execution>
+                        <id>coverage-initialize</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>coverage-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Google code format plugin -->
             <plugin>
                 <groupId>com.spotify.fmt</groupId>
@@ -691,7 +1070,7 @@
                             <goal>copy-resources</goal>
                         </goals>
                         <configuration>
-                            <outputDirectory>${build.outputDirectory}</outputDirectory>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
                             <resources>
                                 <resource>
                                     <directory>${basedir}/src/main/resources/</directory>
@@ -743,6 +1122,18 @@
 
     <repositories>
         <repository>
+            <id>central</id>
+            <name>Maven Central</name>
+            <url>https://repo.maven.apache.org/maven2/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+
+        <repository>
             <id>zeebe</id>
             <name>Zeebe Repository</name>
             <url>https://artifacts.camunda.com/artifactory/zeebe-io/</url>
@@ -763,6 +1154,30 @@
             </releases>
             <snapshots>
                 <enabled>true</enabled>
+            </snapshots>
+        </repository>
+
+        <repository>
+            <id>confluent</id>
+            <name>Confluent</name>
+            <url>https://packages.confluent.io/maven/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+
+        <repository>
+            <id>shibboleth</id>
+            <name>Shibboleth Releases</name>
+            <url>https://build.shibboleth.net/maven/releases/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
             </snapshots>
         </repository>
     </repositories>

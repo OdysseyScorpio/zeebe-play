@@ -122,8 +122,30 @@
   white-space: pre-wrap;
 }
 
+#gateway-choice-incident-message {
+  background-color: #eee;
+  padding: 1em;
+  white-space: pre-wrap;
+}
+
 #resolve-incident-variables-section {
   margin-top: 1em;
+}
+
+#gateway-choice-variables-section {
+  margin-top: 1em;
+}
+
+.gateway-choice-routes-table td {
+  vertical-align: middle;
+}
+
+.gateway-choice-target svg {
+  margin: 0 0.35rem;
+}
+
+.gateway-choice-suggestion {
+  white-space: pre-wrap;
 }
 
 code {

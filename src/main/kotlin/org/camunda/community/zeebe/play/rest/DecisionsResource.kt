@@ -1,6 +1,6 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.ZeebeClient
+import io.camunda.client.CamundaClient
 import io.camunda.zeebe.dmn.DecisionEngineFactory
 import io.camunda.zeebe.dmn.impl.ParsedDmnScalaDrg
 import io.zeebe.zeeqs.data.repository.DecisionEvaluationRepository
@@ -26,7 +26,7 @@ private val RETRY_INTERVAL = Duration.ofMillis(100)
 @RestController
 @RequestMapping("/rest/decisions")
 class DecisionsResource(
-    private val zeebeClient: ZeebeClient,
+    private val zeebeClient: CamundaClient,
     private val zeebeClockService: ZeebeClockService,
     private val decisionEvaluationRepository: DecisionEvaluationRepository,
     private val decisionRepository: DecisionRepository,

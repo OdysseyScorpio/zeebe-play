@@ -471,6 +471,37 @@ function removeResolveIncidentButton(elementId) {
   overlays.remove({ element: elementId, type: "resolve-incident" });
 }
 
+function addGatewayChoiceButton(elementId, action, overlayType = "gateway-choice") {
+  removeGatewayChoiceButton(elementId, overlayType);
+
+  const content =
+    '<button type="button" class="btn btn-sm btn-primary overlay-button" title="Choose gateway path" onclick="' +
+    action +
+    '">' +
+    '<svg class="bi" width="18" height="18" fill="white"><use xlink:href="/img/bootstrap-icons.svg#signpost-split"/></svg>' +
+    "</button>";
+
+  overlays.add(elementId, overlayType, {
+    position: {
+      top: -20,
+      left: -20,
+    },
+    html: content,
+  });
+}
+
+function removeGatewayChoiceButton(elementId, overlayType = "gateway-choice") {
+  overlays.remove({ element: elementId, type: overlayType });
+}
+
+function addGatewayChoiceJobButton(elementId, action) {
+  addGatewayChoiceButton(elementId, action, "gateway-choice-job");
+}
+
+function removeAllGatewayChoiceJobButtons() {
+  overlays.remove({ type: "gateway-choice-job" });
+}
+
 function addTimeTravelButton(elementId, action, fillAction) {
   const content =
     '<div class="btn-group">' +

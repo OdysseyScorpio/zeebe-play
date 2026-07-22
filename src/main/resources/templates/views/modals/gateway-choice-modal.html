@@ -1,0 +1,123 @@
+<div th:fragment="gateway-choice-modal">
+  <div
+    class="modal fade"
+    id="gateway-choice-modal"
+    tabindex="-1"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Choose Gateway Path</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="gateway-choice-incident-key" />
+          <input type="hidden" id="gateway-choice-job-key" />
+          <input type="hidden" id="gateway-choice-element-id" />
+
+          <div class="mb-3">
+            <label class="form-label">Gateway</label>
+            <div id="gateway-choice-gateway" class="fw-semibold"></div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" id="gateway-choice-message-label"
+              >Message</label
+            >
+            <pre id="gateway-choice-incident-message"></pre>
+          </div>
+
+          <table
+            class="table table-striped table-hover caption-top gateway-choice-routes-table"
+          >
+            <caption>
+              Paths
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Path</th>
+                <th scope="col">Next Step</th>
+                <th scope="col">Condition</th>
+                <th scope="col">Variables</th>
+                <th scope="col"></th>
+              </tr>
+            </thead>
+            <tbody id="gateway-choice-routes-table"></tbody>
+          </table>
+
+          <form class="form">
+            <div class="row">
+              <div class="col col-md-3">
+                <label for="gateway-choice-variables-scope" class="form-label"
+                  >Scope</label
+                >
+                <input
+                  class="form-control"
+                  id="gateway-choice-variables-scope"
+                  type="text"
+                  value="global"
+                  readonly
+                />
+              </div>
+              <div class="col">
+                <label
+                  for="gateway-choice-variables-payload"
+                  class="form-label"
+                  >Variables (JSON)</label
+                >
+                <textarea
+                  class="form-control"
+                  id="gateway-choice-variables-payload"
+                  rows="3"
+                  placeholder='{"variableName": "variableValue"}'
+                ></textarea>
+              </div>
+            </div>
+          </form>
+
+          <details id="gateway-choice-variables-section">
+            <summary>Existing Variables</summary>
+            <table class="table table-striped table-hover caption-top">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Value</th>
+                  <th scope="col">Scope</th>
+                  <th scope="col">Scope Element</th>
+                  <th scope="col">Scope Key</th>
+                  <th scope="col"></th>
+                </tr>
+              </thead>
+              <tbody id="gateway-choice-variables-table"></tbody>
+            </table>
+          </details>
+        </div>
+        <div class="modal-footer">
+          <div>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+            <button
+              id="gateway-choice-confirm-button"
+              type="button"
+              class="btn btn-primary"
+              onclick="confirmGatewayChoiceModal();"
+            >
+              Set Variables and Resolve
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

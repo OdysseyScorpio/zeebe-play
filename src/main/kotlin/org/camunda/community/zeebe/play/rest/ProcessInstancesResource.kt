@@ -1,11 +1,11 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.ZeebeClient
+import io.camunda.client.CamundaClient
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/rest/process-instances")
-class ProcessInstancesResource(private val zeebeClient: ZeebeClient) {
+class ProcessInstancesResource(private val zeebeClient: CamundaClient) {
 
     @RequestMapping(path = ["/{processInstanceKey}"], method = [RequestMethod.DELETE])
     fun cancel(@PathVariable("processInstanceKey") processInstanceKey: Long) {

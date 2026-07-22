@@ -1,7 +1,7 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.ZeebeClient
-import io.camunda.zeebe.client.api.response.PartitionBrokerHealth
+import io.camunda.client.CamundaClient
+import io.camunda.client.api.response.PartitionBrokerHealth
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
 import org.springframework.web.bind.annotation.RestController
@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/rest/status")
 class StatusResource(
-    private val zeebeClient: ZeebeClient
+    private val zeebeClient: CamundaClient
 ) {
 
     private val zeebePlayVersion: String = readZeebePlayVersion()

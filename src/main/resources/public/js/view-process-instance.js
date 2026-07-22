@@ -9,11 +9,11 @@ const incidentKeyToElementIdMapping = {};
 let processInstance;
 
 function getProcessInstanceKey() {
-  return $("#process-instance-page-key").text();
+  return $("#process-instance-page-key").text().trim();
 }
 
 function getBpmnProcessId() {
-  return $("#bpmn-process-id").text();
+  return $("#bpmn-process-id").text().trim();
 }
 
 let currentProcessKey;
@@ -1042,6 +1042,7 @@ function loadJobsOfProcessInstance() {
     // first, remove all task markers on the BPMN
     removeAllJobActionMarkers();
     removeAllConnectorActionMarkers();
+    removeAllGatewayChoiceJobButtons();
 
     jobs.forEach((job, index) => {
       const bpmnElement = job.elementInstance.element;
@@ -1060,9 +1061,16 @@ function loadJobsOfProcessInstance() {
       let jobCompleteButtonId = `job-complete-${job.key}`;
       let jobFailButtonId = `job-fail-${job.key}`;
       let jobThrowErrorButtonId = `job-throw-error-${job.key}`;
+      let gatewayChoiceButtonId = `gateway-choice-${job.key}`;
 
       if (isActiveJob) {
-        if (isConnectorJob(job)) {
+        if (isGatewayChoiceJob(job)) {
+          actionButton = `
+            <button id="${gatewayChoiceButtonId}" type="button" class="btn btn-sm btn-primary overlay-button">
+              <svg class="bi" width="18" height="18" fill="white"><use xlink:href="/img/bootstrap-icons.svg#signpost-split"/></svg>
+              Choose Path
+            </button>`;
+        } else if (isConnectorJob(job)) {
           // a job for a connector can be invoked, or completed with variables
           actionButton = `
             <div class="btn-group">
@@ -1119,25 +1127,34 @@ function loadJobsOfProcessInstance() {
           </tr>`);
 
       if (isActiveJob) {
-        // bind actions for job/connector buttons
-        $("#" + jobCompleteButtonId).click(function () {
-          const cachedResponse = localStorage.getItem(
-            "jobCompletion " + getBpmnProcessId() + " " + elementId
-          );
-          let jobVariables = cachedResponse;
-          if (!cachedResponse) {
-            jobVariables = "";
-          }
-          showJobCompleteModal(job.key, "complete", jobVariables);
-        });
+        if (isGatewayChoiceJob(job)) {
+          const action = `openGatewayChoiceJobModal('${job.key}');`;
 
-        if (isConnectorJob(job)) {
+          $("#" + gatewayChoiceButtonId).click(function () {
+            openGatewayChoiceJobModal(job.key);
+          });
+          addGatewayChoiceJobButton(elementId, action);
+        } else {
+          // bind actions for job/connector buttons
+          $("#" + jobCompleteButtonId).click(function () {
+            const cachedResponse = localStorage.getItem(
+              "jobCompletion " + getBpmnProcessId() + " " + elementId
+            );
+            let jobVariables = cachedResponse;
+            if (!cachedResponse) {
+              jobVariables = "";
+            }
+            showJobCompleteModal(job.key, "complete", jobVariables);
+          });
+        }
+
+        if (!isGatewayChoiceJob(job) && isConnectorJob(job)) {
           $("#" + connectorButtonId).click(function () {
             executeConnectorJob(job.jobType, job.key);
           });
 
           makeConnectorTaskPlayable(elementId, job.key, job.jobType);
-        } else {
+        } else if (!isGatewayChoiceJob(job)) {
           $("#" + jobFailButtonId).click(function () {
             fillJobModal(job.key, "fail");
           });
@@ -1312,17 +1329,30 @@ function loadIncidentsOfProcessInstance() {
         jobKey = incident.job.key;
       }
 
-      const action =
+      const resolveAction =
         "openResolveIncidentModal('" + incident.key + "', '" + jobKey + "');";
+      const gatewayChoice = getGatewayChoiceForIncident(incident);
+      const action = gatewayChoice
+        ? "openGatewayChoiceModal('" + incident.key + "', '" + jobKey + "');"
+        : resolveAction;
 
       let actionButton = "";
       if (isActiveIncident) {
+        const actionLabel = gatewayChoice ? "Choose Path" : "Resolve";
+        const actionIcon = gatewayChoice
+          ? "signpost-split"
+          : "arrow-counterclockwise";
+
         actionButton =
-          '<button type="button" class="btn btn-sm btn-primary" title="Resolve" onclick="' +
+          '<button type="button" class="btn btn-sm btn-primary" title="' +
+          actionLabel +
+          '" onclick="' +
           action +
           '">' +
-          '<svg class="bi" width="18" height="18" fill="white"><use xlink:href="/img/bootstrap-icons.svg#arrow-counterclockwise"/></svg>' +
-          " Resolve" +
+          '<svg class="bi" width="18" height="18" fill="white"><use xlink:href="/img/bootstrap-icons.svg#' +
+          actionIcon +
+          '"/></svg> ' +
+          actionLabel +
           "</button>";
       }
 
@@ -1356,9 +1386,17 @@ function loadIncidentsOfProcessInstance() {
       );
 
       if (isActiveIncident) {
-        addResolveIncidentButton(elementId, action);
+        if (gatewayChoice) {
+          addGatewayChoiceButton(gatewayChoice.gatewayElement.id, action);
+          removeResolveIncidentButton(elementId);
+        } else {
+          addResolveIncidentButton(elementId, action);
+        }
       } else {
         removeResolveIncidentButton(elementId);
+        if (gatewayChoice) {
+          removeGatewayChoiceButton(gatewayChoice.gatewayElement.id);
+        }
       }
     });
   });

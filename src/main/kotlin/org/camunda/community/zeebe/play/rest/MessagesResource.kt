@@ -1,6 +1,6 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.ZeebeClient
+import io.camunda.client.CamundaClient
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestMethod
@@ -9,7 +9,7 @@ import java.time.Duration
 
 @RestController
 @RequestMapping("/rest/messages")
-class MessagesResource(private val zeebeClient: ZeebeClient) {
+class MessagesResource(private val zeebeClient: CamundaClient) {
 
     @RequestMapping(method = [RequestMethod.POST])
     fun publishMessage(@RequestBody command: PublishMessageCommand): Long {

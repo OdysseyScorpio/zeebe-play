@@ -1,7 +1,7 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.api.command.ClientException
-import io.camunda.zeebe.client.api.command.ClientStatusException
+import io.camunda.client.api.command.ClientException
+import io.camunda.client.api.command.ClientStatusException
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity

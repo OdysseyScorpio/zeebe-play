@@ -1,11 +1,12 @@
 package org.camunda.community.zeebe.play.rest
 
-import io.camunda.zeebe.client.ZeebeClient
-import io.camunda.zeebe.client.api.response.DeploymentEvent
+import io.camunda.client.CamundaClient
+import io.camunda.client.api.response.DeploymentEvent
 import io.zeebe.zeeqs.data.entity.DecisionRequirements
 import io.zeebe.zeeqs.data.entity.Process
 import io.zeebe.zeeqs.data.repository.DecisionRequirementsRepository
 import io.zeebe.zeeqs.data.repository.ProcessRepository
+import org.camunda.community.zeebe.play.services.GatewayChoiceDeploymentEnhancer
 import org.camunda.community.zeebe.play.services.ZeebeClockService
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.web.bind.annotation.RequestMapping
@@ -24,7 +25,7 @@ private val RETRY_INTERVAL = Duration.ofMillis(100)
 @RestController
 @RequestMapping("/rest/deployments")
 class DeploymentsResource(
-    private val zeebeClient: ZeebeClient,
+    private val zeebeClient: CamundaClient,
     private val zeebeClockService: ZeebeClockService,
     private val processRepository: ProcessRepository,
     private val decisionRequirementsRepository: DecisionRequirementsRepository
@@ -96,17 +97,37 @@ class DeploymentsResource(
         val firstResource = resources.first()
 
         val deployCommand = zeebeClient.newDeployResourceCommand()
-            .addResourceBytes(firstResource.bytes, firstResource.resource.filename)
+            .addEnhancedResource(firstResource)
 
         resources
             .drop(1)
             .forEach {
-                deployCommand.addResourceBytes(it.bytes, it.resource.filename)
+                deployCommand.addEnhancedResource(it)
             }
 
         return deployCommand
             .send()
             .join()
+    }
+
+    private fun io.camunda.client.api.command.DeployResourceCommandStep1.addEnhancedResource(
+        resource: MultipartFile
+    ): io.camunda.client.api.command.DeployResourceCommandStep1.DeployResourceCommandStep2 {
+        val resourceName = resource.resource.filename
+        return addResourceBytes(
+            GatewayChoiceDeploymentEnhancer.enhance(resource.bytes, resourceName),
+            resourceName
+        )
+    }
+
+    private fun io.camunda.client.api.command.DeployResourceCommandStep1.DeployResourceCommandStep2.addEnhancedResource(
+        resource: MultipartFile
+    ): io.camunda.client.api.command.DeployResourceCommandStep1.DeployResourceCommandStep2 {
+        val resourceName = resource.resource.filename
+        return addResourceBytes(
+            GatewayChoiceDeploymentEnhancer.enhance(resource.bytes, resourceName),
+            resourceName
+        )
     }
 
     private fun findProcessByKeyAsync(processKey: Long): Future<Process> =

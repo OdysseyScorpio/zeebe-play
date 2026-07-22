@@ -3,11 +3,11 @@ package org.camunda.community.zeebe.play.zeebe
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
-import io.camunda.zeebe.client.ZeebeClient
-import io.camunda.zeebe.spring.client.properties.ZeebeClientConfigurationProperties
+import io.camunda.client.CamundaClient
 import org.camunda.community.zeebe.play.rest.ZeebeServiceException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -20,7 +20,7 @@ import java.time.Instant
 
 @Configuration
 @ConditionalOnProperty(name = ["zeebe.engine"], havingValue = "remote")
-@EnableConfigurationProperties(ZeebeClientConfigurationProperties::class)
+@EnableConfigurationProperties(ZeebeClientProperties::class)
 open class RemoteZeebeConfig {
 
     @Value(value = "\${zeebe.clock.endpoint}")
@@ -38,10 +38,15 @@ open class RemoteZeebeConfig {
     }
 
     @Bean
-    fun zeebeClient(config: ZeebeClientConfigurationProperties): ZeebeClient {
-        // The Spring-Zeebe client is disabled (configuration issues with embedded engine).
-        // Create the Zeebe client directly using the configuration from Spring-Zeebe.
-        return ZeebeClient.newClient(config)
+    fun zeebeClient(config: ZeebeClientProperties): CamundaClient {
+        val builder = CamundaClient.newClientBuilder()
+            .grpcAddress(config.broker.gatewayAddress.toGrpcUri(config.security.plaintext))
+            .preferRestOverGrpc(false)
+
+        config.security.caCertificatePath?.let { builder.caCertificatePath(it) }
+        config.security.overrideAuthority?.let { builder.overrideAuthority(it) }
+
+        return builder.build()
     }
 
     class RemoteZeebeService(
@@ -149,4 +154,29 @@ open class RemoteZeebeConfig {
 
     }
 
+}
+
+private fun String.toGrpcUri(plaintext: Boolean): URI {
+    if (contains("://")) {
+        return URI.create(this)
+    }
+
+    val scheme = if (plaintext) "http" else "https"
+    return URI.create("$scheme://$this")
+}
+
+@ConfigurationProperties(prefix = "zeebe.client")
+class ZeebeClientProperties {
+    var broker = Broker()
+    var security = Security()
+
+    class Broker {
+        var gatewayAddress: String = "127.0.0.1:26500"
+    }
+
+    class Security {
+        var plaintext: Boolean = true
+        var caCertificatePath: String? = null
+        var overrideAuthority: String? = null
+    }
 }
