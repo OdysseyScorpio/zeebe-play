@@ -22,12 +22,16 @@ class GatewayChoiceDeploymentEnhancerTest {
     }
 
     @Test
-    fun `should leave gateway without default flow unchanged`() {
+    fun `should add start execution listener to gateway without default flow`() {
         val resource = gatewayProcess(defaultFlow = null).toByteArray()
 
-        val enhanced = GatewayChoiceDeploymentEnhancer.enhance(resource, "process.bpmn")
+        val model = Bpmn.readModelFromStream(
+            ByteArrayInputStream(
+                GatewayChoiceDeploymentEnhancer.enhance(resource, "process.bpmn")
+            )
+        )
 
-        assertThat(enhanced).isSameAs(resource)
+        assertThat(gatewayChoiceListeners(model)).hasSize(1)
     }
 
     @Test

@@ -53,18 +53,10 @@ object GatewayChoiceDeploymentEnhancer {
     }
 
     private fun shouldEnhance(gateway: Gateway): Boolean {
-        val defaultFlow = defaultFlow(gateway) ?: return false
-
         return !hasGatewayChoiceListener(gateway) &&
-            gateway.outgoing.any { it != defaultFlow && hasConditionExpression(it) }
+            gateway.outgoing.size > 1 &&
+            gateway.outgoing.any { hasConditionExpression(it) }
     }
-
-    private fun defaultFlow(gateway: Gateway): SequenceFlow? =
-        when (gateway) {
-            is ExclusiveGateway -> gateway.default
-            is InclusiveGateway -> gateway.default
-            else -> null
-        }
 
     private fun hasConditionExpression(sequenceFlow: SequenceFlow): Boolean =
         sequenceFlow.conditionExpression

@@ -1,5 +1,6 @@
 let gatewayChoiceModalContext;
 const GATEWAY_CHOICE_JOB_TYPE = "zeebe-play:gateway-choice";
+const GATEWAY_PATH_CONTROL_ACTION = "gatewayPathControl";
 
 function isGatewayChoiceJob(job) {
   return job?.jobType === GATEWAY_CHOICE_JOB_TYPE;
@@ -137,6 +138,7 @@ function getGatewayChoiceRoutes(gatewayElement) {
     route.suggestedVariables = route.isDefault
       ? suggestGatewayChoiceVariablesForDefault(routes)
       : suggestGatewayChoiceVariables(route.conditionExpression);
+    route.hasSuggestion = route.suggestedVariables !== null;
   });
 
   return routes;
@@ -189,6 +191,7 @@ async function openGatewayChoiceModal(incidentKey, jobKey) {
     incident,
     gatewayChoice,
     variables,
+    selectedRoute: null,
   };
 
   document.getElementById("gateway-choice-incident-key").value = incidentKey;
@@ -198,7 +201,7 @@ async function openGatewayChoiceModal(incidentKey, jobKey) {
   document.getElementById("gateway-choice-gateway").textContent =
     gateway.name || gateway.id;
   document.getElementById("gateway-choice-message-label").textContent =
-    "Incident";
+    "Gateway Path Control";
   document.getElementById("gateway-choice-incident-message").textContent =
     incident.errorMessage;
   document.getElementById("gateway-choice-confirm-button").textContent =
@@ -235,6 +238,7 @@ async function openGatewayChoiceJobModal(jobKey) {
     job,
     gatewayChoice,
     variables,
+    selectedRoute: null,
   };
 
   document.getElementById("gateway-choice-incident-key").value = "";
@@ -244,9 +248,9 @@ async function openGatewayChoiceJobModal(jobKey) {
   document.getElementById("gateway-choice-gateway").textContent =
     gateway.name || gateway.id;
   document.getElementById("gateway-choice-message-label").textContent =
-    "Outcome";
+    "Gateway Path Control";
   document.getElementById("gateway-choice-incident-message").textContent =
-    "The process is paused before this gateway. Set variables, then continue.";
+    "The process is paused before this gateway. Choose a path, then continue.";
   document.getElementById("gateway-choice-confirm-button").textContent =
     "Set Variables and Continue";
   document.getElementById("gateway-choice-variables-payload").value = "";
@@ -299,10 +303,13 @@ function renderGatewayChoiceRoutes(routes) {
       : route.conditionExpression || "-";
 
     const useButton = row.querySelector(".gateway-choice-use-route");
-    if (hasGatewayChoiceVariables(route.suggestedVariables)) {
+    if (route.hasSuggestion) {
       row.querySelector(".gateway-choice-suggestion").textContent =
-        JSON.stringify(route.suggestedVariables, null, 2);
+        hasGatewayChoiceVariables(route.suggestedVariables)
+          ? JSON.stringify(route.suggestedVariables, null, 2)
+          : "Leave unset";
       useButton.addEventListener("click", () => {
+        gatewayChoiceModalContext.selectedRoute = route;
         mergeGatewayChoiceVariables(route.suggestedVariables);
       });
     } else {
@@ -399,7 +406,7 @@ function confirmGatewayChoiceModal() {
   $("#gateway-choice-modal").modal("hide");
 
   if (!incidentKey && jobKey) {
-    return continueGatewayChoiceJob(jobKey, variables);
+    return continueGatewayPathControl(jobKey, variables);
   }
 
   if (Object.keys(parsedVariables).length === 0) {
@@ -430,18 +437,26 @@ function confirmGatewayChoiceModal() {
     );
 }
 
-function continueGatewayChoiceJob(jobKey, variables) {
+function continueGatewayPathControl(jobKey, variables) {
   const toastId = "gateway-choice-job-" + jobKey;
   const task = jobKeyToElementIdMapping[jobKey];
+  const selectedRoute = gatewayChoiceModalContext?.selectedRoute;
 
-  history.push({ action: "completeJob", task, variables });
+  history.push({
+    action: GATEWAY_PATH_CONTROL_ACTION,
+    task,
+    gateway: task,
+    variables,
+    routeId: selectedRoute?.id,
+    routeLabel: selectedRoute?.label,
+  });
   refreshHistory();
 
   sendCompleteJobRequest(jobKey, variables)
     .done(() => {
       showNotificationSuccess(
         toastId,
-        "Gateway continued",
+        "Gateway path controlled",
         getTaskNameByJobKey(jobKey)
       );
     })
@@ -522,11 +537,15 @@ function suggestGatewayChoiceVariables(conditionExpression) {
       return null;
     }
 
-    assignGatewayChoiceVariable(
-      suggestedVariables,
-      suggestion.variableName,
-      suggestion.value
-    );
+    if (suggestion.variables) {
+      mergeGatewayChoiceObjects(suggestedVariables, suggestion.variables);
+    } else {
+      assignGatewayChoiceVariable(
+        suggestedVariables,
+        suggestion.variableName,
+        suggestion.value
+      );
+    }
   }
 
   return suggestedVariables;
@@ -582,6 +601,18 @@ function suggestGatewayChoiceVariable(expression) {
   const normalizedExpression = stripGatewayChoiceParentheses(
     normalizeGatewayChoiceExpression(expression)
   );
+  const definedCheck = parseGatewayChoiceDefinedCheck(normalizedExpression);
+  if (definedCheck) {
+    if (definedCheck.negated) {
+      return { variables: {} };
+    }
+
+    return {
+      variableName: definedCheck.variableName,
+      value: "value",
+    };
+  }
+
   const negativeBoolean = /^not\s+([A-Za-z_][\w.]*)$/i.exec(
     normalizedExpression
   );
@@ -629,6 +660,30 @@ function suggestGatewayChoiceVariable(expression) {
   }
   if (operator === "<=") {
     return { variableName, value };
+  }
+
+  return null;
+}
+
+function parseGatewayChoiceDefinedCheck(expression) {
+  const negativeMatch =
+    /^not\s*\(?\s*is\s+defined\s*\(\s*([A-Za-z_][\w.]*)\s*\)\s*\)?$/i.exec(
+      expression
+    );
+  if (negativeMatch) {
+    return {
+      variableName: negativeMatch[1],
+      negated: true,
+    };
+  }
+
+  const positiveMatch =
+    /^is\s+defined\s*\(\s*([A-Za-z_][\w.]*)\s*\)$/i.exec(expression);
+  if (positiveMatch) {
+    return {
+      variableName: positiveMatch[1],
+      negated: false,
+    };
   }
 
   return null;

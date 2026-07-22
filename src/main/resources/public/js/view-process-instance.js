@@ -121,6 +121,7 @@ function pulsateTasks() {
         "publishMessage",
         "failJob",
         "throwJob",
+        "gatewayPathControl",
       ].includes(action)
     ).length
   ) {
@@ -162,7 +163,9 @@ function makeTasksReplayable() {
 
   const tasks = new Set(
     history
-      .filter(({ action }) => action === "completeJob")
+      .filter(({ action }) =>
+        ["completeJob", "gatewayPathControl"].includes(action)
+      )
       .map(({ task }) => task)
   );
 
@@ -289,6 +292,14 @@ async function rewind(task) {
           break;
         case "completeJob": {
           const jobKey = await fetchJobKeyForTask(newId, step.task);
+          await sendCompleteJobRequest(jobKey, step.variables);
+          break;
+        }
+        case "gatewayPathControl": {
+          const jobKey = await fetchGatewayPathControlJobKey(
+            newId,
+            step.gateway || step.task
+          );
           await sendCompleteJobRequest(jobKey, step.variables);
           break;
         }
@@ -1399,6 +1410,31 @@ function loadIncidentsOfProcessInstance() {
         }
       }
     });
+  });
+}
+
+function fetchGatewayPathControlJobKey(id, gateway) {
+  return new Promise((resolve, reject) => {
+    let remainingTries = 6;
+    let interval = setInterval(() => {
+      remainingTries--;
+      if (remainingTries === 0) {
+        clearInterval(interval);
+        return reject();
+      }
+      queryJobsByProcessInstance(id).done((response) => {
+        response.data.processInstance.jobs.forEach((job) => {
+          if (
+            isGatewayChoiceJob(job) &&
+            job.elementInstance.element.elementId === gateway &&
+            job.state !== "COMPLETED"
+          ) {
+            clearInterval(interval);
+            resolve(job.key);
+          }
+        });
+      });
+    }, 250);
   });
 }
 
