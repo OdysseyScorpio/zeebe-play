@@ -2,7 +2,9 @@ name: Publish Docker image
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - "feature/**"
     tags: [ "v*" ]
   workflow_dispatch:
     inputs:
@@ -29,6 +31,7 @@ env:
   DEFAULT_EZE_REPOSITORY: OdysseyScorpio/eze
   DEFAULT_EZE_REF: main
   DEFAULT_IMAGE_TAG: 2.0.0-SNAPSHOT
+  PRERELEASE_IMAGE_TAG: preRelease
 
 jobs:
   publish:
@@ -45,13 +48,20 @@ jobs:
         run: |
           image_name="${REGISTRY}/${IMAGE_NAME,,}"
           eze_repository="${INPUT_EZE_REPOSITORY:-$DEFAULT_EZE_REPOSITORY}"
+          image_tags=()
 
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             image_tag="${GITHUB_REF_NAME#v}"
             eze_ref="${INPUT_EZE_REF:-$GITHUB_REF_NAME}"
+            image_tags+=("${image_name}:${image_tag}" "${image_name}:latest")
+          elif [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_TYPE}" == "branch" && "${GITHUB_REF_NAME}" == feature/* ]]; then
+            image_tag="${PRERELEASE_IMAGE_TAG}"
+            eze_ref="${INPUT_EZE_REF:-$DEFAULT_EZE_REF}"
+            image_tags+=("${image_name}:${image_tag}")
           else
             image_tag="${INPUT_IMAGE_TAG:-$DEFAULT_IMAGE_TAG}"
             eze_ref="${INPUT_EZE_REF:-$DEFAULT_EZE_REF}"
+            image_tags+=("${image_name}:${image_tag}" "${image_name}:latest")
           fi
 
           {
@@ -60,8 +70,7 @@ jobs:
             echo "eze_repository=${eze_repository}"
             echo "eze_ref=${eze_ref}"
             echo "tags<<EOF"
-            echo "${image_name}:${image_tag}"
-            echo "${image_name}:latest"
+            printf '%s\n' "${image_tags[@]}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
