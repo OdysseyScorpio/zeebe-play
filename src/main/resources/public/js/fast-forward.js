@@ -251,18 +251,35 @@ async function executeFastForward(candidate, variables) {
         }
         const jobKey = await waitForFastForwardGatewayJobKey(
           processInstanceKey,
-          elementId
+          candidate,
+          index,
+          decision
         );
-        await completeFastForwardGateway(jobKey, decision, variables);
+        if (jobKey) {
+          await completeFastForwardGateway(jobKey, decision, variables);
+        }
+        continue;
+      }
+
+      if (isFastForwardMessageCatchElement(element)) {
+        await publishFastForwardMessage(
+          processInstanceKey,
+          candidate,
+          index,
+          variables
+        );
         continue;
       }
 
       if (isFastForwardCompletableElement(element)) {
         const jobKey = await waitForFastForwardJobKey(
           processInstanceKey,
-          elementId
+          candidate,
+          index
         );
-        await completeFastForwardJob(jobKey, elementId);
+        if (jobKey) {
+          await completeFastForwardJob(jobKey, elementId);
+        }
         continue;
       }
 
@@ -324,6 +341,42 @@ function completeFastForwardJob(jobKey, elementId) {
   return sendCompleteJobRequest(jobKey, variables);
 }
 
+async function publishFastForwardMessage(
+  processInstanceKey,
+  candidate,
+  index,
+  variables
+) {
+  const elementId = candidate.nodeIds[index];
+  const subscription = await waitForFastForwardMessageSubscription(
+    processInstanceKey,
+    candidate,
+    index
+  );
+
+  if (!subscription) {
+    return;
+  }
+
+  const messageVariables = JSON.stringify(variables || {});
+
+  history.push({
+    action: "publishMessage",
+    messageName: subscription.messageName,
+    messageCorrelationKey: subscription.messageCorrelationKey,
+    variables: messageVariables,
+    fastForward: true,
+    task: elementId,
+  });
+  refreshHistory();
+
+  await sendPublishMessageRequest(
+    subscription.messageName,
+    subscription.messageCorrelationKey,
+    messageVariables
+  );
+}
+
 function addFastForwardBlocker() {
   const blocker = document.createElement("div");
   blocker.setAttribute("id", "fast-forward-blocker");
@@ -340,10 +393,20 @@ function removeFastForwardBlocker() {
   document.body.style.overflow = "";
 }
 
-async function waitForFastForwardGatewayJobKey(processInstanceKey, elementId) {
+async function waitForFastForwardGatewayJobKey(
+  processInstanceKey,
+  candidate,
+  index,
+  decision
+) {
+  const elementId = candidate.nodeIds[index];
+
   for (let attempt = 0; attempt < FAST_FORWARD_JOB_FETCH_ATTEMPTS; attempt++) {
-    const response = await queryJobsByProcessInstance(processInstanceKey);
-    const job = response.data.processInstance.jobs.find(
+    const [jobResponse, elementInstanceResponse] = await Promise.all([
+      queryJobsByProcessInstance(processInstanceKey),
+      queryElementInstancesByProcessInstance(processInstanceKey),
+    ]);
+    const job = jobResponse.data.processInstance.jobs.find(
       (job) =>
         isGatewayChoiceJob(job) &&
         job.elementInstance.element.elementId === elementId &&
@@ -352,6 +415,16 @@ async function waitForFastForwardGatewayJobKey(processInstanceKey, elementId) {
 
     if (job) {
       return job.key;
+    }
+
+    const processSnapshot = elementInstanceResponse.data.processInstance;
+    assertFastForwardGatewayDidNotTakeDifferentPath(
+      processSnapshot,
+      decision
+    );
+
+    if (hasFastForwardAdvancedPast(processSnapshot, candidate, index)) {
+      return null;
     }
 
     await waitForFastForwardRuntime();
@@ -364,12 +437,68 @@ async function waitForFastForwardGatewayJobKey(processInstanceKey, elementId) {
   );
 }
 
-async function waitForFastForwardJobKey(processInstanceKey, elementId) {
+async function waitForFastForwardMessageSubscription(
+  processInstanceKey,
+  candidate,
+  index
+) {
+  const elementId = candidate.nodeIds[index];
+
   for (let attempt = 0; attempt < FAST_FORWARD_JOB_FETCH_ATTEMPTS; attempt++) {
-    const [userTaskResponse, jobResponse] = await Promise.all([
-      queryUserTasksByProcessInstance(processInstanceKey),
-      queryJobsByProcessInstance(processInstanceKey),
+    const [subscriptionResponse, elementInstanceResponse] = await Promise.all([
+      queryMessageSubscriptionsByProcessInstance(processInstanceKey),
+      queryElementInstancesByProcessInstance(processInstanceKey),
     ]);
+
+    const subscription =
+      subscriptionResponse.data.processInstance.messageSubscriptions.find(
+        (subscription) =>
+          subscription.element.elementId === elementId &&
+          isFastForwardActiveMessageSubscription(subscription)
+      );
+
+    if (subscription) {
+      return subscription;
+    }
+
+    if (
+      hasFastForwardAdvancedPast(
+        elementInstanceResponse.data.processInstance,
+        candidate,
+        index
+      )
+    ) {
+      return null;
+    }
+
+    await waitForFastForwardRuntime();
+  }
+
+  throw new Error(
+    "No active message subscription was found at " +
+      getFastForwardElementLabelById(elementId) +
+      "."
+  );
+}
+
+function isFastForwardActiveMessageSubscription(subscription) {
+  return (
+    subscription.state === "CREATED" ||
+    (subscription.state === "CORRELATED" &&
+      subscription.elementInstance.state === "ACTIVATED")
+  );
+}
+
+async function waitForFastForwardJobKey(processInstanceKey, candidate, index) {
+  const elementId = candidate.nodeIds[index];
+
+  for (let attempt = 0; attempt < FAST_FORWARD_JOB_FETCH_ATTEMPTS; attempt++) {
+    const [userTaskResponse, jobResponse, elementInstanceResponse] =
+      await Promise.all([
+        queryUserTasksByProcessInstance(processInstanceKey),
+        queryJobsByProcessInstance(processInstanceKey),
+        queryElementInstancesByProcessInstance(processInstanceKey),
+      ]);
 
     const userTask =
       userTaskResponse.data.processInstance.userTasks.nodes.find(
@@ -392,6 +521,16 @@ async function waitForFastForwardJobKey(processInstanceKey, elementId) {
       return job.key;
     }
 
+    if (
+      hasFastForwardAdvancedPast(
+        elementInstanceResponse.data.processInstance,
+        candidate,
+        index
+      )
+    ) {
+      return null;
+    }
+
     await waitForFastForwardRuntime();
   }
 
@@ -399,6 +538,77 @@ async function waitForFastForwardJobKey(processInstanceKey, elementId) {
     "No active job was found at " +
       getFastForwardElementLabelById(elementId) +
       "."
+  );
+}
+
+function assertFastForwardGatewayDidNotTakeDifferentPath(
+  processSnapshot,
+  decision
+) {
+  const takenFlowIds = getFastForwardSnapshotElementIds(
+    processSnapshot,
+    "takenSequenceFlows"
+  );
+
+  if (takenFlowIds.has(decision.flowId)) {
+    return;
+  }
+
+  const gatewayElement = elementRegistry.get(decision.gatewayId);
+  const takenOutgoingFlow = getFastForwardSequenceFlowTransitions(
+    gatewayElement
+  ).find((transition) => takenFlowIds.has(transition.flowId));
+
+  if (takenOutgoingFlow) {
+    throw new Error(
+      getFastForwardElementLabel(gatewayElement) +
+        " already took " +
+        getFastForwardElementLabelById(takenOutgoingFlow.flowId) +
+        "."
+    );
+  }
+}
+
+function hasFastForwardAdvancedPast(processSnapshot, candidate, index) {
+  const elementId = candidate.nodeIds[index];
+  const activeIds = getFastForwardSnapshotElementIds(
+    processSnapshot,
+    "activeElementInstances"
+  );
+
+  if (activeIds.has(elementId)) {
+    return false;
+  }
+
+  const completedOrTerminatedIds = new Set([
+    ...getFastForwardSnapshotElementIds(
+      processSnapshot,
+      "completedElementInstances"
+    ),
+    ...getFastForwardSnapshotElementIds(
+      processSnapshot,
+      "terminatedElementInstances"
+    ),
+  ]);
+
+  if (completedOrTerminatedIds.has(elementId)) {
+    return true;
+  }
+
+  return candidate.nodeIds
+    .slice(index + 1)
+    .some(
+      (downstreamElementId) =>
+        activeIds.has(downstreamElementId) ||
+        completedOrTerminatedIds.has(downstreamElementId)
+    );
+}
+
+function getFastForwardSnapshotElementIds(processSnapshot, collectionName) {
+  return new Set(
+    (processSnapshot?.[collectionName] || [])
+      .map((elementInstance) => elementInstance.element?.elementId)
+      .filter(Boolean)
   );
 }
 
@@ -745,22 +955,37 @@ function resolveFastForwardTargetElement(elementId) {
 function isFastForwardCompletableElement(element) {
   return [
     "bpmn:BusinessRuleTask",
-    "bpmn:CallActivity",
-    "bpmn:ManualTask",
     "bpmn:ScriptTask",
     "bpmn:SendTask",
     "bpmn:ServiceTask",
-    "bpmn:Task",
     "bpmn:UserTask",
   ].includes(element?.type);
+}
+
+function isFastForwardMessageCatchElement(element) {
+  if (!element) {
+    return false;
+  }
+
+  if (element.type === "bpmn:ReceiveTask") {
+    return true;
+  }
+
+  if (element.type !== "bpmn:IntermediateCatchEvent") {
+    return false;
+  }
+
+  return (element.businessObject?.eventDefinitions || []).some(
+    (definition) => definition.$type === "bpmn:MessageEventDefinition"
+  );
 }
 
 function isFastForwardBlockingElement(element) {
   return [
     "bpmn:BoundaryEvent",
+    "bpmn:CallActivity",
     "bpmn:EventBasedGateway",
     "bpmn:IntermediateCatchEvent",
-    "bpmn:ReceiveTask",
   ].includes(element?.type);
 }
 
