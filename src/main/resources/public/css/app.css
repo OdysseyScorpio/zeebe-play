@@ -46,7 +46,8 @@
   font-size: 0.6rem;
 }
 
-#rewind-blocker {
+#rewind-blocker,
+#fast-forward-blocker {
   position: absolute;
   z-index: 1900;
   top: 0;
@@ -63,7 +64,8 @@
   transition: opacity 0.8s;
 }
 
-#rewind-blocker svg {
+#rewind-blocker svg,
+#fast-forward-blocker svg {
   width: 10vh;
   height: 10vh;
   display: inline-block;
@@ -261,6 +263,14 @@ code {
 
 #diagram-actions button.disabled {
   pointer-events: none;
+}
+
+#diagram-actions button.fast-forward-active {
+  background-color: #0d6efd;
+}
+
+#diagram-actions button.fast-forward-active svg {
+  fill: white;
 }
 
 #diagram-actions button img,

@@ -17,6 +17,7 @@ function getBpmnProcessId() {
 }
 
 let currentProcessKey;
+let currentProcessInstanceElementSnapshot;
 const history = JSON.parse(
   localStorage.getItem("history " + window.getProcessInstanceKey?.()) || "[]"
 );
@@ -157,7 +158,7 @@ function loadProcessInstanceDetailsViews() {
   makeTasksReplayable();
 }
 
-function makeTasksReplayable() {
+function makeTasksReplayable(processInstance) {
   // first, remove all rewind markers
   overlays.remove({ type: "rewind-marker" });
 
@@ -168,6 +169,12 @@ function makeTasksReplayable() {
       )
       .map(({ task }) => task)
   );
+
+  if (processInstance) {
+    getCompletedReplayableGatewayIds(processInstance).forEach((gatewayId) =>
+      tasks.add(gatewayId)
+    );
+  }
 
   tasks.forEach((task) => {
     overlays.add(task, "rewind-marker", {
@@ -192,6 +199,14 @@ async function rewind(task) {
       step.action === "gatewayPathControl" &&
       (rewindStopIndex < 0 || index <= rewindStopIndex)
   );
+  const gatewayElementIdsToSuppress = new Set(
+    gatewayPathControlsToSuppress.map((step) => step.gateway || step.task)
+  );
+
+  if (isReplayableGateway(task)) {
+    gatewayElementIdsToSuppress.add(task);
+  }
+
   const blocker = document.createElement("div");
   blocker.setAttribute("id", "rewind-blocker");
   blocker.innerHTML =
@@ -254,11 +269,6 @@ async function rewind(task) {
 
     newHistory = [];
 
-    const gatewayElementIdsToSuppress = [
-      ...new Set(
-        gatewayPathControlsToSuppress.map((step) => step.gateway || step.task)
-      ),
-    ];
     for (const gatewayElementId of gatewayElementIdsToSuppress) {
       await sendSuppressGatewayPathControlAutoContinueRequest(
         newId,
@@ -269,7 +279,7 @@ async function rewind(task) {
     for (let i = 0; i < history.length; i++) {
       const step = history[i];
 
-      if (step.task === task) {
+      if (shouldStopReplayAtStep(step, task, rewindStopIndex, i)) {
         break;
       }
 
@@ -376,6 +386,75 @@ async function rewind(task) {
     window.location.href =
       "/view/process-instance/" + newId + window.location.hash;
   }
+}
+
+function getCompletedReplayableGatewayIds(processInstance) {
+  if (!processInstance?.completedElementInstances) {
+    return [];
+  }
+
+  return processInstance.completedElementInstances
+    .map((elementInstance) => elementInstance.element?.elementId)
+    .filter((elementId) => isReplayableGateway(elementId));
+}
+
+function isReplayableGateway(elementId) {
+  if (!elementId || typeof elementRegistry === "undefined") {
+    return false;
+  }
+
+  const element = elementRegistry.get(elementId);
+  return typeof isGatewayChoiceCandidate === "function" &&
+    isGatewayChoiceCandidate(element);
+}
+
+function shouldStopReplayAtStep(step, task, rewindStopIndex, index) {
+  if (step.task === task) {
+    return true;
+  }
+
+  return (
+    rewindStopIndex < 0 &&
+    index > 0 &&
+    step.task &&
+    isReplayableGateway(task) &&
+    isElementReachable(task, step.task)
+  );
+}
+
+function isElementReachable(fromElementId, toElementId, maxDepth = 80) {
+  if (!fromElementId || !toElementId || fromElementId === toElementId) {
+    return false;
+  }
+
+  const queue = [{ elementId: fromElementId, depth: 0 }];
+  const visited = new Set([fromElementId]);
+
+  while (queue.length > 0) {
+    const { elementId, depth } = queue.shift();
+    if (depth >= maxDepth) {
+      continue;
+    }
+
+    const element = elementRegistry.get(elementId);
+    const outgoing = element?.businessObject?.outgoing || [];
+
+    for (const flow of outgoing) {
+      const targetId = flow.targetRef?.id;
+      if (!targetId) {
+        continue;
+      }
+      if (targetId === toElementId) {
+        return true;
+      }
+      if (!visited.has(targetId)) {
+        visited.add(targetId);
+        queue.push({ elementId: targetId, depth: depth + 1 });
+      }
+    }
+  }
+
+  return false;
 }
 
 async function getStartEvent(processInstanceKey) {
@@ -785,6 +864,7 @@ function loadElementInstancesOfProcessInstance() {
     response
   ) {
     let processInstance = response.data.processInstance;
+    currentProcessInstanceElementSnapshot = processInstance;
     let elementInstances = processInstance.elementInstances;
 
     let totalCount = elementInstances.length;
@@ -888,6 +968,7 @@ function loadElementInstancesOfProcessInstance() {
     });
 
     markElementInstances(processInstance);
+    makeTasksReplayable(processInstance);
   });
 }
 
@@ -975,6 +1056,13 @@ function addElementCounters(processInstance) {
   });
 
   onBpmnElementClick(function (elementId) {
+    if (
+      typeof handleFastForwardElementClick === "function" &&
+      handleFastForwardElementClick(elementId)
+    ) {
+      return;
+    }
+
     if (isElementCountersViewEnabled) {
       return;
     }

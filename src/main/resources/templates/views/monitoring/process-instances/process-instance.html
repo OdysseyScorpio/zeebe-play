@@ -33,6 +33,9 @@
     <div
       th:replace="views/modals/gateway-choice-modal.html :: #gateway-choice-modal"
     ></div>
+    <div
+      th:replace="views/modals/fast-forward-modal.html :: #fast-forward-modal"
+    ></div>
 
     <div class="container-fluid fill-height">
       <div class="row justify-content-between">
@@ -176,6 +179,18 @@
                 </svg>
               </button>
             </div>
+            <button
+              id="process-instance-fast-forward"
+              onclick="toggleFastForwardMode(event);"
+              data-bs-toggle="tooltip"
+              data-bs-placement="right"
+              data-bs-trigger="hover"
+              title="Fast forward to element"
+            >
+              <svg class="bi" width="16" height="16" fill="#666666">
+                <use xlink:href="/img/bootstrap-icons.svg#skip-forward" />
+              </svg>
+            </button>
           </div>
           <div id="canvas-controls">
             <button
