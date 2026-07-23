@@ -217,9 +217,13 @@ async function openGatewayChoiceModal(incidentKey, jobKey) {
 async function openGatewayChoiceJobModal(jobKey) {
   const processInstanceKey = getProcessInstanceKey();
 
-  const [jobResponse, variableResponse] = await Promise.all([
+  const [jobResponse, variableResponse, gatewayPathControlStatus] = await Promise.all([
     queryJobsByProcessInstance(processInstanceKey),
     queryVariablesByProcessInstance(processInstanceKey),
+    sendGetGatewayPathControlStatusRequest(jobKey).then(
+      (status) => status,
+      () => null
+    ),
   ]);
 
   const job = jobResponse.data.processInstance.jobs.find(
@@ -233,6 +237,10 @@ async function openGatewayChoiceJobModal(jobKey) {
 
   const gateway = gatewayChoice.gatewayElement.businessObject;
   const variables = variableResponse.data.processInstance.variables;
+  applyGatewayPathControlStatus(
+    gatewayChoice.routes,
+    gatewayPathControlStatus
+  );
 
   gatewayChoiceModalContext = {
     job,
@@ -303,7 +311,11 @@ function renderGatewayChoiceRoutes(routes) {
       : route.conditionExpression || "-";
 
     const useButton = row.querySelector(".gateway-choice-use-route");
-    if (route.hasSuggestion) {
+    if (route.suggestionAlreadySet) {
+      row.querySelector(".gateway-choice-suggestion").textContent =
+        "Already set";
+      useButton.disabled = true;
+    } else if (route.hasSuggestion) {
       row.querySelector(".gateway-choice-suggestion").textContent =
         hasGatewayChoiceVariables(route.suggestedVariables)
           ? JSON.stringify(route.suggestedVariables, null, 2)
@@ -512,6 +524,73 @@ function hasGatewayChoiceVariables(variables) {
     typeof variables === "object" &&
     Object.keys(variables).length > 0
   );
+}
+
+function applyGatewayPathControlStatus(routes, status) {
+  if (
+    !status?.inspected ||
+    status.autoContinueSuppressed ||
+    !Array.isArray(status.missingVariables)
+  ) {
+    return;
+  }
+
+  const missingVariables = new Set(status.missingVariables);
+  routes.forEach((route) => {
+    if (!route.hasSuggestion) {
+      return;
+    }
+
+    const originalVariables = route.suggestedVariables;
+    if (!hasGatewayChoiceVariables(originalVariables)) {
+      return;
+    }
+
+    const filteredVariables = filterGatewayChoiceVariablesByMissingPaths(
+      originalVariables,
+      missingVariables
+    );
+
+    if (hasGatewayChoiceVariables(filteredVariables)) {
+      route.suggestedVariables = filteredVariables;
+    } else {
+      route.suggestedVariables = {};
+      route.hasSuggestion = false;
+      route.suggestionAlreadySet = true;
+    }
+  });
+}
+
+function filterGatewayChoiceVariablesByMissingPaths(variables, missingVariables) {
+  const filteredVariables = {};
+
+  Object.entries(variables).forEach(([key, value]) => {
+    const path = key;
+
+    if (missingVariables.has(path)) {
+      filteredVariables[key] = value;
+      return;
+    }
+
+    if (isGatewayChoicePlainObject(value)) {
+      const nestedMissingVariables = new Set(
+        [...missingVariables]
+          .filter((missingVariable) => missingVariable.startsWith(path + "."))
+          .map((missingVariable) => missingVariable.substring(path.length + 1))
+      );
+      const filteredNestedVariables =
+        filterGatewayChoiceVariablesByMissingPaths(
+          value,
+          nestedMissingVariables
+        );
+
+      if (hasGatewayChoiceVariables(filteredNestedVariables)) {
+        filteredVariables[key] = filteredNestedVariables;
+      }
+    }
+  });
+
+  return filteredVariables;
 }
 
 function parseGatewayChoiceVariableValue(value) {

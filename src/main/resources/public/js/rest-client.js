@@ -87,6 +87,24 @@ function sendCompleteJobRequest(jobKey, variables) {
   });
 }
 
+function sendGetGatewayPathControlStatusRequest(jobKey) {
+  return sendGetRequest("gateway-path-control/jobs/" + jobKey);
+}
+
+function sendSuppressGatewayPathControlAutoContinueRequest(
+  processInstanceKey,
+  gatewayElementId
+) {
+  return sendPostRequest(
+    "gateway-path-control/process-instances/" +
+      processInstanceKey +
+      "/gateways/" +
+      encodeURIComponent(gatewayElementId) +
+      "/suppress-auto-continue",
+    {}
+  );
+}
+
 function sendFailJobRequest(jobKey, retries, errorMessage) {
   return sendPostRequest("jobs/" + jobKey + "/fail", {
     retries: retries,

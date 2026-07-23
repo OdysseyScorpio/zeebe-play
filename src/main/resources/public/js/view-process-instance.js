@@ -186,6 +186,12 @@ function makeTasksReplayable() {
 }
 
 async function rewind(task) {
+  const rewindStopIndex = history.findIndex((step) => step.task === task);
+  const gatewayPathControlsToSuppress = history.filter(
+    (step, index) =>
+      step.action === "gatewayPathControl" &&
+      (rewindStopIndex < 0 || index <= rewindStopIndex)
+  );
   const blocker = document.createElement("div");
   blocker.setAttribute("id", "rewind-blocker");
   blocker.innerHTML =
@@ -247,6 +253,18 @@ async function rewind(task) {
     });
 
     newHistory = [];
+
+    const gatewayElementIdsToSuppress = [
+      ...new Set(
+        gatewayPathControlsToSuppress.map((step) => step.gateway || step.task)
+      ),
+    ];
+    for (const gatewayElementId of gatewayElementIdsToSuppress) {
+      await sendSuppressGatewayPathControlAutoContinueRequest(
+        newId,
+        gatewayElementId
+      );
+    }
 
     for (let i = 0; i < history.length; i++) {
       const step = history[i];
