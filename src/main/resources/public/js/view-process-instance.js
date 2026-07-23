@@ -18,6 +18,7 @@ function getBpmnProcessId() {
 
 let currentProcessKey;
 let currentProcessInstanceElementSnapshot;
+let processInstanceVariablesJson = "{}";
 const history = JSON.parse(
   localStorage.getItem("history " + window.getProcessInstanceKey?.()) || "[]"
 );
@@ -735,15 +736,115 @@ function disableProcessInstanceActionButtons() {
   $("#process-instance-time-travel").addClass("disabled");
 }
 
+function buildProcessInstanceVariablesObject(variables) {
+  const latestVariablesByName = variables.reduce((byName, variable) => {
+    const existingVariable = byName[variable.name];
+    if (!existingVariable || isNewerVariable(variable, existingVariable)) {
+      byName[variable.name] = variable;
+    }
+    return byName;
+  }, {});
+
+  return Object.keys(latestVariablesByName)
+    .sort()
+    .reduce((variablesObject, variableName) => {
+      variablesObject[variableName] = parseVariableValue(
+        latestVariablesByName[variableName].value
+      );
+      return variablesObject;
+    }, {});
+}
+
+function isNewerVariable(candidate, current) {
+  const candidateTimestamp = Date.parse(candidate.timestamp);
+  const currentTimestamp = Date.parse(current.timestamp);
+  if (!Number.isNaN(candidateTimestamp) && !Number.isNaN(currentTimestamp)) {
+    return candidateTimestamp >= currentTimestamp;
+  }
+  return true;
+}
+
+function parseVariableValue(value) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return value;
+  }
+}
+
+function copyProcessInstanceVariables() {
+  copyTextToClipboard(processInstanceVariablesJson)
+    .then(() => {
+      showNotificationSuccess(
+        "copy-process-instance-variables-" + Date.now(),
+        "Variables copied",
+        "JSON copied to clipboard"
+      );
+    })
+    .catch((error) => {
+      showNotificationFailure(
+        "copy-process-instance-variables-" + Date.now(),
+        "Failed to copy variables",
+        error.message
+      );
+    });
+}
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard) {
+    return navigator.clipboard
+      .writeText(text)
+      .catch(() => copyTextWithTemporaryTextArea(text));
+  }
+
+  return copyTextWithTemporaryTextArea(text);
+}
+
+function copyTextWithTemporaryTextArea(text) {
+  return new Promise((resolve, reject) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.setAttribute("readonly", "");
+    textArea.style.position = "fixed";
+    textArea.style.top = "-1000px";
+    textArea.style.opacity = "0";
+
+    document.body.appendChild(textArea);
+    textArea.select();
+
+    try {
+      if (document.execCommand("copy")) {
+        resolve();
+      } else {
+        reject(new Error("The browser refused clipboard access."));
+      }
+    } catch (error) {
+      reject(error);
+    } finally {
+      document.body.removeChild(textArea);
+    }
+  });
+}
+
 function loadVariablesOfProcessInstance() {
   const processInstanceKey = getProcessInstanceKey();
 
   queryVariablesByProcessInstance(processInstanceKey).done(function (response) {
     let processInstance = response.data.processInstance;
-    let variables = processInstance.variables;
+    let variables = processInstance.variables || [];
 
     let totalCount = variables.length;
     $("#variables-total-count").text(totalCount);
+    $("#copy-process-instance-variables").prop("disabled", totalCount === 0);
+    processInstanceVariablesJson = JSON.stringify(
+      buildProcessInstanceVariablesObject(variables),
+      null,
+      2
+    );
 
     $("#variables-of-process-instance-table tbody").empty();
 

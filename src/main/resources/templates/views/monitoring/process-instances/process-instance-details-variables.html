@@ -1,6 +1,21 @@
 <div th:fragment="process-instance-details-variables">
   <div class="row">
     <div class="col">
+      <div class="d-flex justify-content-end py-2">
+        <button
+          id="copy-process-instance-variables"
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          title="Copy variables as JSON"
+          onclick="copyProcessInstanceVariables();"
+          disabled
+        >
+          <svg class="bi" width="16" height="16" fill="currentColor">
+            <use xlink:href="/img/bootstrap-icons.svg#clipboard" />
+          </svg>
+          Copy JSON
+        </button>
+      </div>
       <table
         class="table table-striped table-hover caption-top"
         id="variables-of-process-instance-table"
