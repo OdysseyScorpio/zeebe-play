@@ -223,12 +223,13 @@ function confirmFastForwardModal() {
 
 async function executeFastForward(candidate, variables) {
   const toastId = "fast-forward-" + getProcessInstanceKey();
+  const processInstanceKey = getProcessInstanceKey();
   addFastForwardBlocker();
 
   try {
     for (const decision of candidate.decisions) {
       await sendSuppressGatewayPathControlAutoContinueRequest(
-        getProcessInstanceKey(),
+        processInstanceKey,
         decision.gatewayId
       );
     }
@@ -248,8 +249,8 @@ async function executeFastForward(candidate, variables) {
               "."
           );
         }
-        const jobKey = await fetchGatewayPathControlJobKey(
-          getProcessInstanceKey(),
+        const jobKey = await waitForFastForwardGatewayJobKey(
+          processInstanceKey,
           elementId
         );
         await completeFastForwardGateway(jobKey, decision, variables);
@@ -257,8 +258,8 @@ async function executeFastForward(candidate, variables) {
       }
 
       if (isFastForwardCompletableElement(element)) {
-        const jobKey = await fetchJobKeyForTask(
-          getProcessInstanceKey(),
+        const jobKey = await waitForFastForwardJobKey(
+          processInstanceKey,
           elementId
         );
         await completeFastForwardJob(jobKey, elementId);
@@ -284,7 +285,9 @@ async function executeFastForward(candidate, variables) {
     showNotificationFailure(
       toastId,
       "Fast forward stopped",
-      "<code>" + (e?.message || "Could not reach the selected target.") + "</code>"
+      "<code>" +
+        (e?.message || "Could not reach the selected target.") +
+        "</code>"
     );
   } finally {
     removeFastForwardBlocker();
@@ -337,6 +340,74 @@ function removeFastForwardBlocker() {
   document.body.style.overflow = "";
 }
 
+async function waitForFastForwardGatewayJobKey(processInstanceKey, elementId) {
+  for (let attempt = 0; attempt < FAST_FORWARD_JOB_FETCH_ATTEMPTS; attempt++) {
+    const response = await queryJobsByProcessInstance(processInstanceKey);
+    const job = response.data.processInstance.jobs.find(
+      (job) =>
+        isGatewayChoiceJob(job) &&
+        job.elementInstance.element.elementId === elementId &&
+        job.state !== "COMPLETED"
+    );
+
+    if (job) {
+      return job.key;
+    }
+
+    await waitForFastForwardRuntime();
+  }
+
+  throw new Error(
+    "Gateway path control was not ready at " +
+      getFastForwardElementLabelById(elementId) +
+      "."
+  );
+}
+
+async function waitForFastForwardJobKey(processInstanceKey, elementId) {
+  for (let attempt = 0; attempt < FAST_FORWARD_JOB_FETCH_ATTEMPTS; attempt++) {
+    const [userTaskResponse, jobResponse] = await Promise.all([
+      queryUserTasksByProcessInstance(processInstanceKey),
+      queryJobsByProcessInstance(processInstanceKey),
+    ]);
+
+    const userTask =
+      userTaskResponse.data.processInstance.userTasks.nodes.find(
+        (userTask) =>
+          userTask.elementInstance.element.elementId === elementId &&
+          userTask.state !== "COMPLETED"
+      );
+
+    if (userTask) {
+      return userTask.key;
+    }
+
+    const job = jobResponse.data.processInstance.jobs.find(
+      (job) =>
+        job.elementInstance.element.elementId === elementId &&
+        job.state !== "COMPLETED"
+    );
+
+    if (job) {
+      return job.key;
+    }
+
+    await waitForFastForwardRuntime();
+  }
+
+  throw new Error(
+    "No active job was found at " +
+      getFastForwardElementLabelById(elementId) +
+      "."
+  );
+}
+
+function waitForFastForwardRuntime() {
+  return new Promise((resolve) =>
+    setTimeout(resolve, FAST_FORWARD_JOB_FETCH_INTERVAL_MS)
+  );
+}
+
 function findFastForwardCandidates(startElementIds, targetElementId) {
   const candidates = [];
 
@@ -382,11 +453,11 @@ function findFastForwardPaths(
   }
 
   const currentElement = elementRegistry.get(currentElementId);
-  const outgoing = currentElement?.businessObject?.outgoing || [];
+  const outgoing = getFastForwardOutgoingTransitions(currentElement);
 
-  outgoing.forEach((flow) => {
-    const targetId = flow.targetRef?.id;
-    const flowId = flow.id;
+  outgoing.forEach((transition) => {
+    const targetId = transition.targetId;
+    const flowId = transition.flowId;
     if (!targetId || visited.has(targetId)) {
       return;
     }
@@ -396,7 +467,7 @@ function findFastForwardPaths(
       decisions: [...path.decisions],
     };
 
-    if (isGatewayChoiceCandidate(currentElement)) {
+    if (!transition.virtual && isGatewayChoiceCandidate(currentElement)) {
       nextPath.decisions.push({
         gatewayId: currentElementId,
         flowId,
@@ -415,6 +486,100 @@ function findFastForwardPaths(
       nextVisited
     );
   });
+}
+
+function getFastForwardOutgoingTransitions(element) {
+  if (!element) {
+    return [];
+  }
+
+  const subprocessStarts = getFastForwardSubProcessStartEvents(element);
+  if (subprocessStarts.length > 0) {
+    return subprocessStarts.map((startEvent) => ({
+      targetId: startEvent.id,
+      flowId: element.id + ":enter:" + startEvent.id,
+      virtual: true,
+    }));
+  }
+
+  const transitions = getFastForwardSequenceFlowTransitions(element);
+
+  if (isFastForwardSubProcessEndEvent(element)) {
+    transitions.push(
+      ...getFastForwardSequenceFlowTransitions(
+        getFastForwardSubProcessParent(element),
+        true
+      )
+    );
+  }
+
+  return transitions;
+}
+
+function getFastForwardSequenceFlowTransitions(element, virtual = false) {
+  return (element?.businessObject?.outgoing || [])
+    .map((flow) => {
+      const sequenceFlow = elementRegistry.get(flow.id) || flow;
+      return {
+        targetId:
+          flow.targetRef?.id ||
+          sequenceFlow.target?.id ||
+          sequenceFlow.businessObject?.targetRef?.id,
+        flowId: flow.id || sequenceFlow.id,
+        virtual,
+      };
+    })
+    .filter((transition) => transition.targetId);
+}
+
+function getFastForwardSubProcessStartEvents(element) {
+  if (!isFastForwardSubProcess(element)) {
+    return [];
+  }
+
+  return getFastForwardChildElements(element).filter(
+    (child) => child.type === "bpmn:StartEvent"
+  );
+}
+
+function getFastForwardChildElements(element) {
+  const childIds = new Set();
+
+  (element.children || []).forEach((child) => childIds.add(child.id));
+  (element.businessObject?.flowElements || []).forEach((flowElement) =>
+    childIds.add(flowElement.id)
+  );
+
+  return [...childIds]
+    .map((elementId) => elementRegistry.get(elementId))
+    .filter(Boolean);
+}
+
+function isFastForwardSubProcessEndEvent(element) {
+  return (
+    element?.type === "bpmn:EndEvent" &&
+    isFastForwardSubProcess(getFastForwardSubProcessParent(element))
+  );
+}
+
+function getFastForwardSubProcessParent(element) {
+  let parent = element?.parent;
+
+  while (parent) {
+    if (isFastForwardSubProcess(parent)) {
+      return parent;
+    }
+    parent = parent.parent;
+  }
+
+  return null;
+}
+
+function isFastForwardSubProcess(element) {
+  return (
+    element?.type === "bpmn:SubProcess" ||
+    element?.businessObject?.$type === "bpmn:SubProcess"
+  );
 }
 
 function compareFastForwardCandidates(left, right) {
@@ -526,12 +691,36 @@ function getFastForwardStartElementIds() {
     ?.filter((elementId) => elementRegistry.get(elementId)) || [];
 
   if (activeElementIds.length > 0) {
-    return [...new Set(activeElementIds)];
+    return [...new Set(removeFastForwardContainerElements(activeElementIds))];
   }
 
   return elementRegistry
     .filter((element) => element.type === "bpmn:StartEvent")
     .map((element) => element.id);
+}
+
+function removeFastForwardContainerElements(elementIds) {
+  return elementIds.filter(
+    (elementId) =>
+      !elementIds.some(
+        (otherElementId) =>
+          otherElementId !== elementId &&
+          isFastForwardDescendantOf(otherElementId, elementId)
+      )
+  );
+}
+
+function isFastForwardDescendantOf(elementId, parentElementId) {
+  let parent = elementRegistry.get(elementId)?.parent;
+
+  while (parent) {
+    if (parent.id === parentElementId) {
+      return true;
+    }
+    parent = parent.parent;
+  }
+
+  return false;
 }
 
 function resolveFastForwardTargetElement(elementId) {
@@ -595,3 +784,5 @@ function getFastForwardElementLabel(element) {
 const FAST_FORWARD_MAX_DEPTH = 80;
 const FAST_FORWARD_SEARCH_LIMIT = 50;
 const FAST_FORWARD_MAX_CANDIDATES = 20;
+const FAST_FORWARD_JOB_FETCH_ATTEMPTS = 24;
+const FAST_FORWARD_JOB_FETCH_INTERVAL_MS = 250;

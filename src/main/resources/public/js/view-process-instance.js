@@ -437,13 +437,9 @@ function isElementReachable(fromElementId, toElementId, maxDepth = 80) {
     }
 
     const element = elementRegistry.get(elementId);
-    const outgoing = element?.businessObject?.outgoing || [];
+    const outgoingTargetIds = getReplayableOutgoingTargetIds(element);
 
-    for (const flow of outgoing) {
-      const targetId = flow.targetRef?.id;
-      if (!targetId) {
-        continue;
-      }
+    for (const targetId of outgoingTargetIds) {
       if (targetId === toElementId) {
         return true;
       }
@@ -455,6 +451,85 @@ function isElementReachable(fromElementId, toElementId, maxDepth = 80) {
   }
 
   return false;
+}
+
+function getReplayableOutgoingTargetIds(element) {
+  if (!element) {
+    return [];
+  }
+
+  const subprocessStartIds = getReplayableSubProcessStartIds(element);
+  if (subprocessStartIds.length > 0) {
+    return subprocessStartIds;
+  }
+
+  const targetIds = getReplayableSequenceFlowTargetIds(element);
+
+  if (isReplayableSubProcessEndEvent(element)) {
+    targetIds.push(
+      ...getReplayableSequenceFlowTargetIds(
+        getReplayableSubProcessParent(element)
+      )
+    );
+  }
+
+  return targetIds;
+}
+
+function getReplayableSequenceFlowTargetIds(element) {
+  return (element?.businessObject?.outgoing || [])
+    .map((flow) => {
+      const sequenceFlow = elementRegistry.get(flow.id) || flow;
+      return (
+        flow.targetRef?.id ||
+        sequenceFlow.target?.id ||
+        sequenceFlow.businessObject?.targetRef?.id
+      );
+    })
+    .filter(Boolean);
+}
+
+function getReplayableSubProcessStartIds(element) {
+  if (!isReplayableSubProcess(element)) {
+    return [];
+  }
+
+  const childIds = new Set();
+  (element.children || []).forEach((child) => childIds.add(child.id));
+  (element.businessObject?.flowElements || []).forEach((flowElement) =>
+    childIds.add(flowElement.id)
+  );
+
+  return [...childIds].filter(
+    (childId) => elementRegistry.get(childId)?.type === "bpmn:StartEvent"
+  );
+}
+
+function isReplayableSubProcessEndEvent(element) {
+  return (
+    element?.type === "bpmn:EndEvent" &&
+    isReplayableSubProcess(getReplayableSubProcessParent(element))
+  );
+}
+
+function getReplayableSubProcessParent(element) {
+  let parent = element?.parent;
+
+  while (parent) {
+    if (isReplayableSubProcess(parent)) {
+      return parent;
+    }
+    parent = parent.parent;
+  }
+
+  return null;
+}
+
+function isReplayableSubProcess(element) {
+  return (
+    element?.type === "bpmn:SubProcess" ||
+    element?.businessObject?.$type === "bpmn:SubProcess"
+  );
 }
 
 async function getStartEvent(processInstanceKey) {
