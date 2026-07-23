@@ -71,6 +71,8 @@ management:
         include: health, metrics
 
   health:
+    elasticsearch:
+      enabled: false
     livenessstate:
       enabled: true
     readinessstate:
